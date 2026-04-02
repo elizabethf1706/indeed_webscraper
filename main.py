@@ -39,17 +39,9 @@ def main():
     job_location = 'remote'
     date_posted = 20
 
-    csv_file = get_csv_path(job_position, job_location)
-    print(f"Saving results live to: {csv_file}")
-
     try:
         search_jobs(driver, country, job_position, job_location, date_posted)
-        count = scrape_job_data(driver, country, csv_file)
-
-        if count == 0:
-            print("No results found.")
-        else:
-            print(f"Done. {count} jobs saved to: {csv_file}")
+        scrape_job_data(driver, country)
     finally:
         driver.quit()
 

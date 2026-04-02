@@ -1,11 +1,14 @@
 import os
 import time
 
-import pandas as pd
 from bs4 import BeautifulSoup
 import undetected_chromedriver as uc
 from selenium.common import NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+from ai import ai_evaluate_job
 
 
 global total_jobs
@@ -40,11 +43,9 @@ def search_jobs(driver, country, job_position, job_location, date_posted):
     return full_url
 
 
-def scrape_job_data(driver, country, csv_path):
-    job_count = 0
-
-    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
-        f.write('Job Title,Job Description\n')
+def scrape_job_data(driver, country):
+    evaluated = 0
+    saved = 0
 
     while True:
         soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -70,26 +71,41 @@ def scrape_job_data(driver, country, csv_path):
                 except (AttributeError, TypeError):
                     link_full = None
 
-            # Visit job page to get description
-            job_description = None
-            if link_full:
-                try:
-                    driver.get(link_full)
-                    time.sleep(1)
-                    detail_soup = BeautifulSoup(driver.page_source, 'lxml')
-                    desc_div = detail_soup.find('div', {'id': 'jobDescriptionText'})
-                    if desc_div:
-                        job_description = desc_div.get_text(separator='\n').strip()
-                    driver.back()
-                    time.sleep(1)
-                except Exception:
-                    pass
+            if not link_full:
+                continue
 
-            # Write row immediately to file
-            row = pd.DataFrame([{'Job Title': job_title, 'Job Description': job_description}])
-            row.to_csv(csv_path, mode='a', header=False, index=False)
-            job_count += 1
-            print(f"Saved job {job_count}: {job_title}")
+            # Visit job detail page
+            try:
+                driver.get(link_full)
+                time.sleep(1)
+
+                detail_soup = BeautifulSoup(driver.page_source, 'lxml')
+                desc_div = detail_soup.find('div', {'id': 'jobDescriptionText'})
+                job_description = desc_div.get_text(separator='\n').strip() if desc_div else None
+
+                evaluated += 1
+                print(f"[{evaluated}] Evaluating: {job_title}")
+
+                if job_description and ai_evaluate_job(job_title, job_description):
+                    # Click the Save button on the detail page
+                    try:
+                        save_btn = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.XPATH, '//button[.//*[local-name()="title" and text()="save-icon"]]'))
+                        )
+                        save_btn.click()
+                        saved += 1
+                        print(f"  -> SAVED ({saved} total saved)")
+                    except Exception:
+                        print(f"  -> AI said yes but could not find Save button")
+                else:
+                    print(f"  -> skipped")
+
+                driver.back()
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"  -> error processing job: {e}")
+                continue
 
         try:
             soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -99,9 +115,5 @@ def scrape_job_data(driver, country, csv_path):
         except:
             break
 
-    return job_count
-
-
-def get_csv_path(job_position, job_location):
-    desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-    return os.path.join(desktop_path, f'{job_position}_{job_location}.csv')
+    print(f"\nDone. Evaluated {evaluated} jobs, saved {saved}.")
+    return evaluated, saved

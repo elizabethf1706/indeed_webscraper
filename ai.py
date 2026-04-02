@@ -38,6 +38,9 @@ def ai_evaluate_job(title, description):
         - Technical project/program management
         - General tech or engineering roles
         - Analyst Roles
+        - IT
+        - QA
+        - Research Roles
 
         ------------------------
         HARD REJECTION RULES (IF ANY MATCH → ANSWER "no")
