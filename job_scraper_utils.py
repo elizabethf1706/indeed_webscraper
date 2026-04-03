@@ -25,10 +25,8 @@ def configure_webdriver():
     return driver
 
 
-def search_jobs(driver, country, job_position, job_location, date_posted):
-    full_url = f'{country}/jobs?q={"+".join(job_position.split())}&l={job_location}&fromage={date_posted}'
-    print(full_url)
-    driver.get(full_url)
+def search_jobs(driver, url):
+    driver.get(url)
     input("If prompted to log in or complete a Cloudflare check, do so now. Then press Enter to continue...")
     global total_jobs
     try:
@@ -39,8 +37,6 @@ def search_jobs(driver, country, job_position, job_location, date_posted):
     except NoSuchElementException:
         print("No job count found")
         total_jobs = "Unknown"
-
-    return full_url
 
 
 def scrape_job_data(driver, country):
